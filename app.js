@@ -61,8 +61,9 @@ const newsService = (function () {
 	const apiUrl = 'http://newsapi.org/v2'; // got api url
 
 	return { // return responses  first get method is for search, second is for full news
-		topHeadLines(country = "ua", cb) {
-			http.get(`${apiUrl}/top-headlines?country=${country}&apiKey=${apiKey}`, cb);
+		topHeadLines(country = "ru", cat = "sports",
+			cb) {
+			http.get(`${apiUrl}/top-headlines?country=${country}&category=${cat}&apiKey=${apiKey}`, cb);
 		},
 		everything(query, cb) {
 			http.get(`${apiUrl}/everything?q=${query}&apiKey=${apiKey}`, cb);
@@ -70,8 +71,133 @@ const newsService = (function () {
 	}
 })();
 
+const form = document.forms['newsControls'];
+const countrySelect = form.elements['country'];
+const categorySelect = form.elements['category'];
+const searchInput = form.elements['search'];
+
+form.addEventListener('submit', (e) => {
+	e.preventDefault();
+	loadNews();
+
+});
+
+
 
 //  init selects
 document.addEventListener('DOMContentLoaded', function () {
 	M.AutoInit();
+	loadNews();
 });
+
+// load news func
+function loadNews() {
+	showLoader();
+	const country = countrySelect.value;
+	const searchText = searchInput.value;
+	const category = categorySelect.value;
+
+	if (!searchText) {
+		newsService.topHeadLines(country, category, onGetResponse);
+	} else {
+		newsService.everything(searchText, onGetResponse);
+	}
+
+
+}
+
+// func on get response from server
+function onGetResponse(err, res) {
+	removePreloader();
+	if (err) {
+		showAlert(err, 'errorr-msg');
+		return;
+	}
+
+	if (!res.articles.length) {
+		showAlert('there is no massages');
+		return;
+	}
+
+	renderNews(res.articles);
+
+}
+
+// func render nerws
+function renderNews(news) {
+	const newsContainer = document.querySelector('.news-container .row');
+	if (newsContainer.children.length) {
+		clearContainer(newsContainer);
+	}
+	// because of html we create string
+	let fragment = '';
+	news.forEach(newsItem => {
+		// saving our ready html template(materialize) to const el with iterating
+		const el = newsTemplate(newsItem);
+		// and adding el to string 
+		fragment += el;
+	});
+
+	// shows on the web page like a html 
+	newsContainer.insertAdjacentHTML('afterbegin', fragment);
+
+}
+
+// newsItem tem func
+function newsTemplate({
+	urlToImage,
+	title,
+	url,
+	desc
+}) {
+	return `
+		<div class="col s12 m12 l12">
+			<div class="card">
+				<div class="card-image">
+					<img src="${urlToImage}">
+					<span class="card-title">${title || ''}</span> 
+				</div>
+				<div <class="card-content">
+					<p> ${desc || ''} </p> 
+				</div>
+				<div class="card-action">
+          <a href="${url}">read more</a>
+        </div>
+			</div>
+		</div>
+	`;
+}
+
+function showAlert(msg, type = "sucsess") {
+	M.toast({
+		html: msg,
+		classes: type
+	});
+}
+
+function clearContainer(container) {
+	let child = container.lastElementChild;
+	while (child) {
+		container.removeChild(child);
+		child = container.lastElementChild;
+	}
+}
+
+// show loader func
+function showLoader() {
+	document.body.insertAdjacentHTML(
+		'afterbegin',
+		`
+		<div class="progress">
+			<div class="indeterminate"></div>
+		</div>
+		`
+	);
+}
+// remove preloader
+function removePreloader() {
+	const loader = document.querySelector('.progress');
+	if (loader) {
+		loader.remove();
+	}
+}
